@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAD TIME · Pixel MV</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: monospace; }
+  #mv { display: block; image-rendering: pixelated; background: #000; }
+  #ui { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column;
+        color: #fff; cursor: pointer; background: rgba(0,0,0,.55); letter-spacing: 2px; transition: opacity .2s; }
+  #ui.hide { opacity: 0; pointer-events: none; }
+  #ui .t { font-size: 28px; color: #ff7f27; border: 3px solid #ff7f27; padding: 10px 26px; }
+  #ui .s { margin-top: 14px; font-size: 12px; color: #999; }
+  #timeline { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; background: #111; cursor: pointer; }
+  #bar { height: 100%; width: 0; background: #ff0000; }
+  #info { position: fixed; top: 6px; left: 8px; color: #0f0; font-size: 12px; display: none; }
+  #info.show { display: block; }
+</style>
+</head>
+<body>
+<canvas id="mv" width="1920" height="1080"></canvas>
+<audio id="audio" src="music.mp3" preload="auto"></audio>
+<div id="ui"><div class="t">♥ 战斗 · PLAY</div><div class="s">SPACE / Z 播放暂停 · ←/→ 快退快进 · D 调试信息 · 点击底部进度条跳转</div></div>
+<div id="timeline"><div id="bar"></div></div>
+<div id="info"></div>
+<script src="src/analysis.js"></script>
+<script src="src/assets.js"></script>
+<script src="src/glyphs.js"></script>
+<script src="src/util.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/draw.js"></script>
+<script src="src/scene.js"></script>
+<script src="src/post.js"></script>
+<script src="src/voxel.js"></script>
+<script src="src/timeline.js"></script>
+<script src="src/tl_intro.js"></script>
+<script src="src/tl_dropA.js"></script>
+<script src="src/tl_blue.js"></script>
+<script src="src/tl_cannon.js"></script>
+<script src="src/tl_climax.js"></script>
+<script src="src/tl_counter.js"></script>
+<script src="src/tl_frenzy.js"></script>
+<script src="src/tl_final.js"></script>
+<script src="src/tl_end.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
