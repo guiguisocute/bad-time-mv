@@ -9,7 +9,7 @@
 precision highp float;
 uniform sampler2D uWorld, uGlowA, uGlowB, uScreen, u3D;
 uniform float uMode3D;
-uniform vec2 uOut, uWorldSize, uPad, uView;
+uniform vec2 uOut, uWorldSize, uPad, uView, u3DSize;
 uniform vec4 uRect;
 uniform vec3 uCamPos, uF, uR, uD;
 uniform vec2 uTan;
@@ -101,14 +101,14 @@ void main(){
   if (uMode3D > 0.5) {
     // first-person voxel pass: chromatic split + bloom from the emissive alpha
     vec2 q = vec2(uv.x, 1.0 - uv.y);
-    vec2 off = (uv - 0.5) * ca / 480.0;
+    vec2 off = (uv - 0.5) * ca / u3DSize.x;
     vec4 c = texture2D(u3D, q);
     col = vec3(texture2D(u3D, q + off).r, c.g, texture2D(u3D, q - off).b);
     vec3 g = vec3(0.0);
     for (int i = 0; i < 12; i++) {
       float a = float(i) * 0.5236;
       for (int j = 1; j <= 2; j++) {
-        vec4 s = texture2D(u3D, q + vec2(cos(a), sin(a)) * float(j * j) * 2.5 / vec2(480.0, 270.0));
+        vec4 s = texture2D(u3D, q + vec2(cos(a), sin(a)) * float(j * j) * 2.5 / u3DSize);
         g += s.rgb * s.a;
       }
     }
@@ -235,6 +235,7 @@ void main(){
       gl.uniform2f(u.uOut, R4[2], R4[3]);
       gl.uniform2f(u.uWorldSize, src.world.width, src.world.height);
       gl.uniform2f(u.uPad, MV.PADX, MV.PADY);
+      if (u.u3DSize) gl.uniform2f(u.u3DSize, p.size3D ? p.size3D[0] : 480, p.size3D ? p.size3D[1] : 270);
       const f1 = (n, v) => u[n] && gl.uniform1f(u[n], v);
       f1('uTime', p.time); f1('uCA', p.ca); f1('uInv', p.inv); f1('uBW', p.bw); f1('uFlash', p.flash);
       f1('uGlitch', p.glitch); f1('uBloom', p.bloom); f1('uVig', p.vig); f1('uDesat', p.desat);

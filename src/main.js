@@ -8,10 +8,13 @@
   function start() {
   MV.buildTimeline();
   TL.finalize();
+  if (MV.PORTRAIT) MV.H.framePortrait(T.cut.t0, T.cut.t1);
   const canvas = document.getElementById('mv');
   const scene = (MV.scene = new MV.Scene());
   const post = new MV.Post(canvas);
-  const voxel = new MV.Voxel(post.gl, 480, 270);
+  const size3D = MV.PORTRAIT ? [270, 480] : [480, 270];
+  const voxel = new MV.Voxel(post.gl, size3D[0], size3D[1]);
+  const cut = T.cut;
 
   // audio latency calibration (seconds, + = visuals later)
   const LAT = parseFloat(q.get('lat') || '0');
@@ -22,26 +25,35 @@
     const vhs = TL.vhsAt(tReal);
     const pov = TL.pov && t >= TL.pov.t0 && t < TL.pov.t1 ? TL.pov : null;
     const S = scene.render(t, !!pov);
+    // portrait: the 16:9-authored camera is widened by k (and nudged by dx / fy)
+    const pc = MV.PORTRAIT ? TL.pcam.at(t) : null;
     let tex3D = null;
-    if (pov) tex3D = voxel.render(pov.scene(t));
+    if (pov) {
+      const sc = pov.scene(t);
+      // same widening in first person: scale the vertical field of view like the 2D zoom
+      if (pc) sc.cam.fov = 2 * Math.atan(Math.tan((sc.cam.fov || 1.25) / 2) / pc.k);
+      tex3D = voxel.render(sc);
+    }
     const P = S.post, fx = S.fx;
     const env = T.env(t, 'rms');
     // motion smear from camera velocity (whip pans)
-    const cam = S.cam;
+    let cam = S.cam;
+    if (pc) { const z = cam.zoom * pc.k; cam = Object.assign({}, cam, { zoom: z, x: cam.x + pc.dx, y: cam.y + pc.dy + (pc.fy * MV.VH) / z }); }
     let smear = [0, 0];
     // (keyframed camera only: shake must not smear)
     const c1 = TL.cam.at(t), c0 = TL.cam.at(t - 1 / 60);
     const vx = (c1.x - c0.x) * c1.zoom, vy = (c1.y - c0.y) * c1.zoom;
     const vr = (c1.roll - c0.roll) * 300 + (c1.yaw - c0.yaw) * 400;
     const vm = Math.hypot(vx + vr, vy);
-    // hard cuts jump hundreds of px in one frame: never smear those
-    if (vm > 12 && vm < 140) { const k = (Math.min(vm, 60) - 12) / vm; smear = [((vx + vr) * k) / MV.VW, (vy * k) / MV.VH]; }
+    // hard cuts jump hundreds of px in one frame: never smear those (nor the first-person pass,
+    // which the smear - sampling the flat world - does not belong to)
+    if (!pov && vm > 12 && vm < 140) { const k = (Math.min(vm, 60) - 12) / vm; smear = [((vx + vr) * k) / MV.VW, (vy * k) / MV.VH]; }
     const src = { world: scene.world, glowA: scene.glowA, glowB: scene.glowB, screen: scene.screen, tex3D };
     const params = {
       time: t, ca: P.ca + fx.ca, inv: fx.inv, bw: fx.bw, flash: Math.min(1, fx.flash), glitch: Math.max(P.glitch, fx.glitch),
-      bloom: P.bloom * (0.85 + env * 0.4), vig: P.vig, desat: P.desat, tintAmt: Math.max(P.tintAmt, P.tint * 0.35), grid: P.grid * U.clamp(cam.zoom - 0.6),
+      bloom: P.bloom * (0.85 + env * 0.4), vig: P.vig, desat: P.desat, tintAmt: Math.max(P.tintAmt, P.tint * 0.35), grid: P.grid * U.clamp(S.cam.zoom - 0.6),
       scan: P.scan + vhs * 0.25, vhs, mode3D: !!pov, letter: P.letter, bg: P.bg * (0.7 + env * 0.5), bgHue: P.bgHue, smear, seed: Math.floor(t * 30) % 97,
-      flashCol: fx.flashCol || [1, 1, 1],
+      flashCol: fx.flashCol || [1, 1, 1], size3D,
     };
     post.render(src, cam, params);
     return S;
@@ -55,11 +67,12 @@
     }
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const vw = window.innerWidth, vh = window.innerHeight;
-    const w = Math.min(vw, (vh * 16) / 9);
+    const ar = MV.PORTRAIT ? 9 / 16 : 16 / 9;
+    const w = Math.min(vw, vh * ar);
     canvas.style.width = w + 'px';
-    canvas.style.height = (w * 9) / 16 + 'px';
-    canvas.width = Math.min(1920, Math.round(w * dpr));
-    canvas.height = Math.round((canvas.width * 9) / 16);
+    canvas.style.height = w / ar + 'px';
+    canvas.width = Math.min(MV.PORTRAIT ? 1080 : 1920, Math.round(w * dpr));
+    canvas.height = Math.round(canvas.width / ar);
   }
   resize();
   window.addEventListener('resize', resize);
@@ -104,7 +117,8 @@
   const ui = document.getElementById('ui');
   const bar = document.getElementById('bar');
   const info = document.getElementById('info');
-  let playing = false, clockT = parseFloat(q.get('t') || '0'), clockAt = performance.now();
+  // (a cut plays only its own range: [cut.t0, cut.t1])
+  let playing = false, clockT = parseFloat(q.get('t') || String(cut.t0)), clockAt = performance.now();
   audio.currentTime = clockT;
   // past the end of the mp3 the clock runs on its own (silent tail up to T.end)
   const inTail = (t) => t >= (audio.duration || T.dur) - 0.02;
@@ -112,20 +126,20 @@
     if (!playing) return clockT;
     // smooth clock between (coarse) audio.currentTime updates
     const est = clockT + (performance.now() - clockAt) / 1000;
-    if (audio.ended || inTail(est)) return Math.min(est, T.end);
+    if (audio.ended || inTail(est)) return Math.min(est, cut.t1);
     const drift = audio.currentTime - est;
     if (Math.abs(drift) > 0.05) { clockT = audio.currentTime; clockAt = performance.now(); return clockT; }
     return est;
   };
   const start = () => { playing = true; clockAt = performance.now(); ui.classList.add('hide'); };
   const play = () => {
-    if (clockT >= T.end - 0.01) seek(0);
+    if (clockT >= cut.t1 - 0.01) seek(cut.t0);
     if (inTail(clockT)) return start();
     audio.play().then(() => { clockT = audio.currentTime; start(); }).catch(() => {});
   };
   const pause = () => { clockT = now(); audio.pause(); playing = false; ui.classList.remove('hide'); };
   const seek = (t) => {
-    t = U.clamp(t, 0, T.end);
+    t = U.clamp(t, cut.t0, cut.t1);
     audio.currentTime = Math.min(t, audio.duration || T.dur);
     clockT = t; clockAt = performance.now();
     if (playing && !inTail(t) && audio.paused) audio.play().catch(() => {});
@@ -134,7 +148,7 @@
   canvas.addEventListener('click', () => (playing ? pause() : play()));
   document.getElementById('timeline').addEventListener('click', (e) => {
     const r = e.currentTarget.getBoundingClientRect();
-    seek(((e.clientX - r.left) / r.width) * T.end);
+    seek(cut.t0 + ((e.clientX - r.left) / r.width) * (cut.t1 - cut.t0));
     e.stopPropagation();
   });
   window.addEventListener('keydown', (e) => {
@@ -154,6 +168,14 @@
     sfxGain.connect(actx.destination);
     for (const [k, url] of Object.entries(window.MV_ASSETS.sfx))
       fetch(url).then((r) => r.arrayBuffer()).then((b) => actx.decodeAudioData(b)).then((d) => (bufs[k] = d)).catch(() => {});
+    // procedural sounds (src/synth.js), only the ones the timeline uses
+    const SYN = window.MV_SYNTH;
+    if (SYN) for (const k of new Set(SFX.map((e) => e.name))) {
+      if (bufs[k] || !SYN.has(k)) continue;
+      const d = SYN.make(k, actx.sampleRate), b = actx.createBuffer(1, d.length, actx.sampleRate);
+      b.copyToChannel(d, 0);
+      bufs[k] = b;
+    }
   };
   ui.addEventListener('click', initAudio);
   canvas.addEventListener('click', initAudio);
@@ -178,11 +200,11 @@
     lastSfxT = t;
   };
   function loop() {
-    if (playing && now() >= T.end) { playing = false; clockT = T.end; ui.classList.remove('hide'); }
+    if (playing && now() >= cut.t1) { playing = false; clockT = cut.t1; audio.pause(); ui.classList.remove('hide'); }
     const t = now() - LAT;
     pumpSfx(t);
     MV.renderFrame(t);
-    bar.style.width = (100 * t) / T.end + '%';
+    bar.style.width = (100 * (t - cut.t0)) / (cut.t1 - cut.t0) + '%';
     if (info.classList.contains('show')) {
       const b = T.barOf(t);
       info.textContent = `t=${t.toFixed(2)}  bar ${Math.floor(b)}  beat ${Math.floor((b % 1) * 4) + 1}  [${T.section(t).name}]`;

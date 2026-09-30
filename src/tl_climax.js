@@ -127,7 +127,7 @@ MV.sections.push(function () {
     t0: tL, t1: at(37, 2), z: 90, screen: true,
     draw(ctx, emi, t) {
       const u = t - tL;
-      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 960, 540);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, MV.SW, MV.SH);
       const a = U.clamp(u / 0.1);
       ctx.globalAlpha = a;
       ctx.fillStyle = '#fff';
@@ -206,7 +206,7 @@ MV.sections.push(function () {
         ctx.ellipse(mx, my + 60, 60 + 700 * w, 30 + 500 * w, 0, 0, U.TAU);
         ctx.fill();
         ctx.globalAlpha = w;
-        ctx.fillRect(0, 0, 960, 540);
+        ctx.fillRect(0, 0, MV.SW, MV.SH);
         ctx.globalAlpha = 1;
       }
     },

@@ -7,11 +7,19 @@
 
   // ---------------------------------------------------------------- tracks
   TL.cam = new Track({ x: 480, y: 270, zoom: 1, roll: 0, pitch: 0, yaw: 0 });
+  // portrait framing on top of the (16:9-authored) camera: zoom factor k, world offsets dx / dy,
+  // and fy = shift as a fraction of the view height (+ lifts the picture above the app's caption area)
+  TL.pcam = new Track({ k: 0.62, dx: 0, dy: 0, fy: 0.05 });
+  // things the portrait framing must keep in shot: {t0, t1, pos(t) -> [x, y], r}; and moments
+  // it must treat as a cut (besides the camera's own)
+  TL.focus = [];
+  TL.frameCuts = [];
   TL.box = new Track(Object.assign({ draw: 0, alpha: 1, fill: 1, th: 5, glow: 1 }, L.box));
   TL.soul = new Track({ x: 480, y: 344, rot: 0, sc: 1, sq: 1, a: 0 });
   TL.soulCol = new Steps('red');
   TL.aura = new Track({ v: 0 });
-  TL.enemy = new Track({ x: L.enemy[0], y: L.enemy[1], a: 0, reveal: 0, sway: 1, ghost: 0, handGlow: 0, eyeFire: 0 });
+  // (nod: head drop in art px; spf: seconds per frame of the arm swings - slower when he is spent)
+  TL.enemy = new Track({ x: L.enemy[0], y: L.enemy[1], a: 0, reveal: 0, sway: 1, ghost: 0, handGlow: 0, eyeFire: 0, nod: 0, spf: 0.024 });
   TL.head = new Steps('Default'); // Default LookLeft Wink ClosedEyes NoEyes BlueEye Tired1 Tired2
   TL.body = new Steps('idle'); // idle | HandDown HandUp HandLeft HandRight (swing plays when set)
   TL.torso = new Steps('Default'); // Default | Shrug
@@ -40,6 +48,8 @@
     if (sfxLast[k]) { sfxLast[k].vol = Math.max(sfxLast[k].vol, vol); return; }
     TL.sfx.push((sfxLast[k] = { t: +t.toFixed(4), name, vol }));
   };
+  // reverse swell (src/synth.js) that ends exactly on tHit
+  H.swell = (tHit, vol = 0.5, name = 'Swell') => H.sfx(tHit - (window.MV_SYNTH ? window.MV_SYNTH.len(name) : 1), name, vol);
   const at = (H.at = T.at);
   H.S16 = T.s16; H.BEAT = T.beat; H.BAR = T.bar;
   H.RIFF = [0, 1, 2, 4, 7, 9, 11, 13, 14, 15];
@@ -247,6 +257,8 @@
       if (o.sfx !== false) H.sfx(f, sc > 3 ? 'GasterBlast2' : 'GasterBlast', o.vol ?? 0.45);
     }
     if (o.sfx !== false) H.sfx(o.tSpawn, 'GasterBlaster', (o.vol ?? 0.45) * 0.9);
+    // (where it settles, not where it flies in from)
+    TL.focus.push({ t0: o.tSpawn - 0.1, t1: last + dur + 0.1, pos: (t) => { const p = pose(Math.max(t, o.tSpawn + 0.25)); return [p.x, p.y]; }, r: 30 * sc });
     return TL.add({
       t0: o.tSpawn, t1: tEnd, z: o.z ?? 36, kind: 'beam',
       draw(ctx, emi, t) {
@@ -520,7 +532,7 @@
         pieces.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (o.up ?? 120), vr: (rnd() - 0.5) * 20, d: rnd() * 0.04 });
       }
     const dur = o.dur || 1.4;
-    H.sfx(t0, o.sound || 'HeartShatter', o.vol ?? 0.45);
+    if (o.sound !== false) H.sfx(t0, o.sound || 'HeartShatter', o.vol ?? 0.45);
     return TL.add({
       t0, t1: t0 + dur, z: o.z ?? 48,
       draw(ctx, emi, t) {
@@ -597,6 +609,64 @@
         if (emi) { emi.globalAlpha = 0.4 * fade; emi.fillStyle = '#ff2020'; emi.fillRect(R(x - str.length * 17 * (o.scale || 1)), R(yy - 18), R(str.length * 34 * (o.scale || 1)), 36); emi.globalAlpha = 1; }
       },
     });
+
+  // ---------------------------------------------------------------- portrait framing
+  // A vertical frame is far narrower than the 16:9 one the camera was authored for, so blasters
+  // at the sides fall out of shot. For every moment of [t0, t1] this measures how far the
+  // hand-set portrait view (TL.cam + TL.pcam) would have to open up to hold every live focus
+  // target and the soul, then eases that in (quickly, a moment early) and out (slowly), and bakes
+  // the result into TL.pcam (k, dx). Where nothing is missing the view is left exactly as it was.
+  H.framePortrait = (t0, t1) => {
+    const dt = 1 / 60, n = Math.ceil((t1 - t0) / dt) + 1, LEAD = 6, ATT = 2500 * dt, REL = 350 * dt;
+    const aspect = 1080 / 1920, P = 12;
+    const eL = new Float32Array(n), eR = new Float32Array(n), eV = new Float32Array(n);
+    const base = [];
+    const focus = TL.focus.slice().sort((a, b) => a.t0 - b.t0);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i * dt, c = TL.cam.at(t), p = TL.pcam.at(t);
+      const z = c.zoom * p.k, hw = (MV.VH * aspect) / z / 2, hh = MV.VH / z / 2;
+      const cx = c.x + p.dx, cy = c.y + p.dy + (p.fy * MV.VH) / z;
+      base.push([c, p, cx, hw]);
+      let l = Infinity, r = -Infinity, top = Infinity, bot = -Infinity;
+      const add = (x, y, rad) => { l = Math.min(l, x - rad); r = Math.max(r, x + rad); top = Math.min(top, y - rad); bot = Math.max(bot, y + rad); };
+      let any = false;
+      for (const f of focus) {
+        if (f.t0 > t) break;
+        if (t > f.t1) continue;
+        const [x, y] = f.pos(t);
+        add(x, y, f.r + P); any = true;
+      }
+      if (!any) continue;
+      const s = TL.soul.at(t);
+      if (s.a > 0.5) add(s.x, s.y, 30);
+      eL[i] = Math.max(0, cx - hw - l);
+      eR[i] = Math.max(0, r - (cx + hw));
+      eV[i] = Math.max(0, Math.max(cy - top, bot - cy) - hh) * aspect;
+    }
+    // ease: open a moment early and fast, close slowly - but never across a cut (a camera cut, or a
+    // hard change a section marked in TL.frameCuts): there the framing changes with the picture
+    const cutAt = new Uint8Array(n); // cutAt[i]: a cut falls between sample i-1 and i
+    for (const tc of TL.cam.segs.filter((g) => g.t1 === g.t0).map((g) => g.t0).concat(TL.frameCuts)) {
+      const i = Math.ceil((tc - t0) / dt - 1e-9);
+      if (i > 0 && i < n) cutAt[i] = 1;
+    }
+    const ease = (e) => {
+      const a = new Float32Array(n);
+      for (let i = 0; i < n; i++) { let m = e[i]; for (let j = i + 1; j < Math.min(n, i + LEAD) && !cutAt[j]; j++) m = Math.max(m, e[j]); a[i] = m; }
+      for (let i = 1; i < n; i++) if (!cutAt[i]) a[i] = Math.max(a[i], a[i - 1] - REL);
+      for (let i = n - 2; i >= 0; i--) if (!cutAt[i + 1]) a[i] = Math.max(a[i], a[i + 1] - ATT);
+      return a;
+    };
+    const L2 = ease(eL), R2 = ease(eR), V2 = ease(eV);
+    const K = [], DX = [];
+    for (let i = 0; i < n; i++) {
+      const [c, p, cx, hw] = base[i];
+      const l = cx - hw - L2[i] - V2[i], r = cx + hw + R2[i] + V2[i];
+      K.push(+(((MV.VH * aspect) / (r - l)) / c.zoom).toFixed(4));
+      DX.push(+((l + r) / 2 - c.x).toFixed(2));
+    }
+    TL.pcam.bake(t0, dt, { k: K, dx: DX });
+  };
 
   // orbiting blaster: circles around (cx, cy) at radius rad, always aiming at the centre (+ aimOff)
   H.orbitCannon = (o) => {

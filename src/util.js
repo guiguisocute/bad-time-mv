@@ -81,4 +81,15 @@
     for (const s of A.sections) if (b >= s.bar0 && b < s.bar1) return s;
     return A.sections[A.sections.length - 1];
   };
+
+  // ------------------------------------------------------------ cuts / output format
+  // ?cut=tiktok: the vertical short. Starts on the FIGHT select that leads into the
+  // four-strike combo (bar 44), keeps everything after it, and swaps in a harder
+  // 54-59 plus extra sound design. Portrait framing follows the output aspect
+  // (render: w < h; live player: ?portrait=1, on by default for the TikTok cut).
+  const q = new URLSearchParams(location.search);
+  MV.CUT = q.get('cut') || '';
+  MV.TIKTOK = MV.CUT === 'tiktok';
+  MV.PORTRAIT = q.has('render') ? +(q.get('w') || 1920) < +(q.get('h') || 1080) : (q.get('portrait') ?? (MV.TIKTOK ? '1' : '0')) === '1';
+  T.cut = MV.TIKTOK ? { t0: T.at(44), t1: T.dur + 3.5 } : { t0: 0, t1: T.end };
 })();

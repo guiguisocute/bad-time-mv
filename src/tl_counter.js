@@ -122,18 +122,30 @@ MV.sections.push(function () {
     },
   });
   sayT.forEach((tt) => H.sfx(tt, 'SansSpeak', 0.3));
-  H.cam(at(46), at(46, 0, 3), { x: ex + 60, y: ey - 90, zoom: 2.1, roll: 0, pitch: 0 }, 'outExpo');
+  if (MV.TIKTOK) {
+    // vertical cut: hold one shot that holds him and the whole bubble until the last word has
+    // landed, then cut straight to the eye (bubble: x 542..779, y 108..212)
+    const tEye = at(47, 1);
+    H.cut(at(46), { x: 600, y: 200, zoom: 1.3, roll: 0, pitch: 0, yaw: 0 });
+    H.cam(at(46), tEye - 0.01, { zoom: 1.36, x: 602 }, 'lin');
+    TL.pcam.set(at(46), { k: 0.6, dx: 0 });
+    TL.pcam.set(tEye, { k: 0.62, dx: 0 });
+    H.cut(tEye, { x: ex, y: ey - 104, zoom: 2.6, roll: -0.03, pitch: -0.05, yaw: 0 });
+    H.cam(tEye, at(47, 3, 2), { zoom: 3.4, roll: -0.05, pitch: -0.1 }, 'in2');
+    H.punch(tEye, 0.8);
+  }
+  if (!MV.TIKTOK) H.cam(at(46), at(46, 0, 3), { x: ex + 60, y: ey - 90, zoom: 2.1, roll: 0, pitch: 0 }, 'outExpo');
   // his turn: the menu box closes into the arena and the soul is pulled in from the FIGHT button
   const tS = at(46, 3);
   TL.btn[0].to(tS, tS + 0.01, { sel: 0 }, 'step');
   H.box(tS, tS + 0.3, B0, 'outBack');
   TL.soul.set(tS, { a: 1, x: L.btnX[0] + 16, y: L.btnY + 21, rot: 0, sc: 1 });
   TL.soul.to(tS, at(47), { x: C0[0], y: C0[1] }, 'inOut');
-  H.cam(tS, at(47), { x: 480, y: 300, zoom: 1.25 }, 'inOut');
+  if (!MV.TIKTOK) H.cam(tS, at(47), { x: 480, y: 300, zoom: 1.25 }, 'inOut');
   TL.post.to(at(47), at(47, 1), { bloom: 1, vig: 0.4, bg: 0.6, ca: 0.6, desat: 0 }, 'inOut');
   // bar 47: the eye ignites, the camera creeps in, sixteenth stutters into the frenzy
   TL.head.set(at(47), 'BlueEye');
-  H.cam(at(47), at(47, 3, 2), { x: ex, y: ey - 110, zoom: 3.2, roll: -0.04, pitch: -0.1 }, 'inOut');
+  if (!MV.TIKTOK) H.cam(at(47), at(47, 3, 2), { x: ex, y: ey - 110, zoom: 3.2, roll: -0.04, pitch: -0.1 }, 'inOut');
   for (let s = 8; s < 16; s++) H.punch(at(47, 0, s), 0.2 + (s - 8) * 0.1);
   for (let s = 12; s < 16; s++) TL.glitch(at(47, 0, s), at(47, 0, s) + 0.05, 0.3 + (s - 12) * 0.2);
 });

@@ -11,6 +11,7 @@ MV.sections.push(function () {
   // ---------------------------------------------------------------- bars 48-49: shortcuts
   const t0 = at(48);
   H.bigHit(t0);
+  TL.frameCuts.push(t0); // (portrait: the push onto his eye must not open up before the drop)
   H.sfx(t0, 'Slam', 0.6);
   TL.post.set(t0, { bloom: 1, vig: 0.4, bg: 1, ca: 0.6 });
   TL.head.set(t0, 'BlueEye');
@@ -270,82 +271,160 @@ MV.sections.push(function () {
   follow(at(53), at(54), 16, (t) => ({ zoom: 2.0, pitch: 0.15, yaw: 0.12, roll: Math.sin((t - at(53)) * Math.PI * 2) * 0.08 }), 0.85, 0.7);
   for (let s = 8; s < 16; s++) H.punch(at(53, 0, s), 0.15 + (s - 8) * 0.04);
 
-  // ---------------------------------------------------------------- bars 54-55: the HUD attacks
-  const tL = at(54);
-  H.box(tL, tL + 0.25, B0, 'outBack');
+
+  // ---------------------------------------------------------------- bars 54-55: the riff opens fire
+  // The bass drops out here and the percussion plays the main riff (x x x . x . . x . x . x . x x x),
+  // so the HUD's letters are fired on the riff itself: the name on five of its accents in bar 54, LV
+  // and the HP figures on the whole run in bar 55. Each one crosses the spot the soul has only just
+  // left, exactly on the note. Under it a pulse on every beat: the walls close in and the frame
+  // tightens, up to the drop. The camera keeps the letter that is about to fire in shot.
+  const tL = at(54), tDrop = at(56), hy = L.hudY;
+  const V = (a, b) => [b[0] - a[0], b[1] - a[1]], len = (v) => Math.hypot(v[0], v[1]);
+  H.box(tL, tL + 0.1, B0, 'outExpo');
   TL.soulCol.set(tL, 'red');
-  TL.aura.to(tL, tL + 0.1, { v: 0 }, 'out');
+  TL.aura.to(tL, tL + 0.08, { v: 0 }, 'out');
   TL.enemy.to(tL, tL + 0.1, { handGlow: 0 }, 'out');
   TL.head.set(tL, 'Default');
-  H.cam(tL, tL + 0.3, { x: 480, y: 360, zoom: 1.25, pitch: 0.1, yaw: 0, roll: 0 }, 'outExpo');
-  // the soul circles slowly in the box
-  const loop = (t) => { const a = (t - tL) * Math.PI; return [C0[0] + Math.cos(a) * 34, C0[1] + Math.sin(a) * 30]; };
-  TL.soul.to(tL, tL + 0.25, { x: loop(tL + 0.25)[0], y: loop(tL + 0.25)[1], rot: 0, sq: 1 }, 'outExpo');
-  for (let i = 1; i <= 48; i++) {
-    const t = tL + 0.25 + (i / 48) * (at(55, 3) - tL - 0.25);
-    const [x, y] = loop(t);
-    TL.soul.to(t - (at(55, 3) - tL - 0.25) / 48, t, { x, y }, 'lin');
-  }
-  const hy = L.hudY;
-  const letters = [];
-  'BOMEI'.split('').forEach((c, i) => letters.push({ key: 'name', i, c, x: L.name + i * 12, y: hy }));
-  [['L', 0], ['V', 1], ['1', 3], ['9', 4]].forEach(([c, i]) => letters.push({ key: 'lv', i, c, x: L.lv + i * 12, y: hy }));
-  [['6', 0], ['1', 1], ['/', 3], ['9', 5], ['2', 6]].forEach(([c, i]) => letters.push({ key: 'num', i, c, x: L.num + i * 12, y: hy }));
-  // each letter flies past the soul, turns, and boomerangs back into its slot through the
-  // arena again; they land one after another on thirty-seconds, and the HUD is whole again
-  TL.hudBack = TL.hudBack || {};
-  letters.forEach((lt, k) => {
-    const td = at(54, 0, k * 1 + 1);
-    (TL.hudDetach[lt.key] = TL.hudDetach[lt.key] || [])[lt.i] = td;
-    const ts = td + 0.1;
-    const cross = ts + 0.35;
-    const [hx0, hy0] = [TL.soul.at(cross).x, TL.soul.at(cross).y];
-    const p0 = [lt.x + 5, lt.y + 5];
-    const ang = Math.atan2(hy0 - p0[1], hx0 - p0[0]);
-    const off = (k % 2 ? 1 : -1) * 40;
-    const aim = [hx0 - Math.sin(ang) * off, hy0 + Math.cos(ang) * off];
-    const dist = Math.hypot(aim[0] - p0[0], aim[1] - p0[1]), sp = dist / (cross - ts);
-    const dir = [(aim[0] - p0[0]) / dist, (aim[1] - p0[1]) / dist];
-    const out = (t) => [p0[0] + dir[0] * sp * (t - ts), p0[1] - 10 + dir[1] * sp * (t - ts)];
-    // the way back: a curve through a point beside the soul (on the side it came from)
-    const tTurn = cross + 0.3, tBack = at(55, 1) + k * S16 / 2;
-    const P1 = out(tTurn), uMid = Math.SQRT1_2, tMid = tTurn + uMid * (tBack - tTurn);
-    const sm = TL.soul.at(tMid);
-    const back = [P1[0] - sm.x, P1[1] - sm.y], bl = Math.hypot(back[0], back[1]) || 1;
-    const mid = [sm.x + (back[0] / bl) * 34 - (back[1] / bl) * 26 * Math.sign(off), sm.y + (back[1] / bl) * 34 + (back[0] / bl) * 26 * Math.sign(off)];
-    const C = [2 * mid[0] - 0.5 * (P1[0] + p0[0]), 2 * mid[1] - 0.5 * (P1[1] + p0[1])];
-    const ret = (t) => {
-      const u = U.clamp((t - tTurn) / (tBack - tTurn)) ** 2, v = 1 - u;
-      return [v * v * P1[0] + 2 * u * v * C[0] + u * u * p0[0], v * v * P1[1] + 2 * u * v * C[1] + u * u * p0[1]];
-    };
-    const pos = (t) => (t < ts ? [p0[0] + U.noise(t * 60 + k) * 1.5, p0[1] - 10 * U.eOut((t - td) / 0.1)] : t < tTurn ? out(t) : ret(t));
-    (TL.hudBack[lt.key] = TL.hudBack[lt.key] || [])[lt.i] = tBack;
-    TL.add({
-      t0: td, t1: tBack, z: 45, kind: 'white',
-      draw(ctx, emi, t) {
-        const [x, y] = pos(t);
-        const spin = t < ts ? 0 : t < tTurn ? (t - ts) * 14 : (tTurn - ts) * 14 + (t - tTurn) * 22 * (1 - U.clamp((t - tTurn) / (tBack - tTurn)) ** 4);
-        ctx.save(); ctx.translate(R(x), R(y)); ctx.rotate(spin * (k % 2 ? 1 : -1));
-        D.hud(ctx, lt.c, -9, -9, { scale: t > tBack - 0.08 ? U.lerp(3, 1, (t - tBack + 0.08) / 0.08) : 3, glow: emi, glowA: 0.5 });
-        ctx.restore();
-      },
-      hit(t, px, py) { if (t < ts) return false; const [x, y] = pos(t); return Math.hypot(px - x, py - y) < 14; },
-    });
-    H.sfx(td, 'MenuCursor', 0.35);
-    H.punch(td, 0.3);
-    H.sfx(tBack, 'MenuCursor', 0.3);
-    TL.ring(tBack, p0[0], p0[1], { r0: 2, r1: 14, color: '#ffffff', dur: 0.18 });
+  TL.soul.to(tL, tL + 0.12, { x: C0[0], y: C0[1], rot: 0, sq: 1 }, 'outExpo');
+
+  // ---- the pulse: every beat the walls close in (and once more on the last eighth)
+  const boxAt = (k) => { const w = 150 - 10 * k, h = 140 - 9 * k; return { x: C0[0] - w / 2, y: C0[1] - h / 2, w, h }; };
+  const squeeze = [];
+  for (let k = 1; k < 8; k++) squeeze.push([tL + k * BEAT, k]);
+  squeeze.push([at(55, 3, 2), 8.2]);
+  const boxFor = (t) => { let k = 0; for (const [tb, kk] of squeeze) if (t >= tb) k = kk; return boxAt(k); };
+  squeeze.forEach(([tb, k], i) => {
+    H.box(tb, tb + 0.07, boxAt(k), 'outExpo');
+    for (const s of i % 2 ? ['left', 'right'] : ['top', 'bottom']) H.boxHit(tb, s, 0.5, 7 + k);
+    TL.impact(tb, { amp: 2 + k * 0.7, zoom: 0.015 + k * 0.006, ca: 1 + k * 0.5, dur: 0.3 });
+    TL.post.to(tb, tb + 0.08, { vig: 0.45 + k * 0.055, desat: k * 0.035, ca: 0.6 + k * 0.18, bg: 1 - k * 0.09, letter: k * 0.06 }, 'outExpo');
   });
-  // the last letter snaps home: the HUD shudders back into place (the HP bar never leaves)
-  const tHome = at(55, 1) + 13 * S16 / 2;
-  TL.hud.to(tHome, tHome + 0.05, { barDy: 4 }, 'outExpo');
-  TL.hud.to(tHome + 0.05, tHome + 0.4, { barDy: 0 }, 'outElastic');
-  H.punch(tHome, 0.8, { dy: 1 });
-  TL.hud.to(at(56), at(56) + 0.01, { jit: 2.5 }, 'step');
+  const hands = ['HandUp', 'HandLeft', 'HandRight', 'HandDown'];
+  for (let k = 0; k < 8; k++) TL.body.set(tL + k * BEAT, hands[k % 4]);
+  TL.body.set(at(55, 3, 2), 'HandUp');
+  // halfway, his eye lights up
+  TL.head.set(at(55), 'BlueEye');
+  TL.enemy.to(at(55), at(55) + 0.1, { handGlow: 0.5 }, 'out');
+  TL.enemy.to(at(55, 3), at(55, 3, 3), { handGlow: 1 }, 'in');
+  H.hit(at(55), 0.7);
+  TL.hud.to(tL, at(55, 3), { jit: 1.5 }, 'in2');
+
+  // ---- the letters, one per riff note: the name in bar 54, then LV and the HP figures from the
+  // outside in (so the shot can close in on the ones still to come)
+  const slot = (key, i, c, x) => ({ key, i, c, x, y: hy });
+  const order = [
+    slot('name', 0, 'B', L.name), slot('name', 1, 'O', L.name + 12), slot('name', 2, 'M', L.name + 24), slot('name', 3, 'E', L.name + 36), slot('name', 4, 'I', L.name + 48),
+    slot('lv', 0, 'L', L.lv), slot('num', 6, '2', L.num + 72), slot('lv', 1, 'V', L.lv + 12), slot('num', 5, '9', L.num + 60), slot('lv', 3, '1', L.lv + 36),
+    slot('num', 3, '/', L.num + 36), slot('lv', 4, '9', L.lv + 48), slot('num', 1, '1', L.num + 12), slot('num', 0, '6', L.num),
+  ];
+  const notes = [[54, 2], [54, 4], [54, 7], [54, 11], [54, 14], [55, 0], [55, 2], [55, 4], [55, 7], [55, 9], [55, 11], [55, 13], [55, 14], [55, 15]].map(([b, s]) => at(b, 0, s));
+  const FL = S16, HIT_R = 14, SAFE = 22; // launched a sixteenth before its note
+  const posAt = (s, t) => [s.p0[0] + s.dir[0] * s.v * (t - s.tl), s.p0[1] + s.dir[1] * s.v * (t - s.tl)];
+  const shots = [];
+  let P = [C0[0], C0[1]];
+  notes.forEach((tc, k) => {
+    const lt = order[k], p0 = [lt.x + 5, lt.y - 9]; // launched from where it has lifted to
+    const d = V(p0, P), dist = len(d), dir = [d[0] / dist, d[1] / dist];
+    const s = { lt, p0, P, dir, v: dist / FL, tl: tc - FL, tc, tEnd: tc + 0.3 };
+    shots.push(s);
+    // the step: just before the note, square to the incoming line, inside the walls that are
+    // coming (until the next step) and clear of every letter still in the air
+    const tStep = tc - (k < 5 ? 0.08 : 0.065), dur = 0.05;
+    const tNext = k + 1 < notes.length ? notes[k + 1] - 0.08 : tDrop;
+    const b = boxFor(tNext), nrm = [-dir[1], dir[0]];
+    let best = null;
+    for (const L2 of [27, 31, 24, 35]) for (const rot of [0, 0.35, -0.35, 0.7, -0.7]) for (const sg of [1, -1]) {
+      const c = Math.cos(rot), sn = Math.sin(rot);
+      const Q = [P[0] + (nrm[0] * c - nrm[1] * sn) * sg * L2, P[1] + (nrm[0] * sn + nrm[1] * c) * sg * L2];
+      if (Q[0] < b.x + 12 || Q[0] > b.x + b.w - 12 || Q[1] < b.y + 12 || Q[1] > b.y + b.h - 12) continue;
+      let clear = 1e9;
+      for (let t = tStep; t <= tNext; t += 1 / 240) {
+        const u = t < tStep + dur ? MV.EASE.outExpo((t - tStep) / dur) : 1, q = [U.lerp(P[0], Q[0], u), U.lerp(P[1], Q[1], u)];
+        for (const o of shots) if (t >= o.tl && t <= o.tEnd) clear = Math.min(clear, len(V(q, posAt(o, t))));
+      }
+      const score = Math.min(clear, SAFE + 10) * 10 - len(V(Q, C0)) - L2 * 0.2 - Math.abs(rot) * 8;
+      if (!best || score > best.score) best = { Q, clear, score };
+    }
+    if (!best) { console.warn('hud riff: no room at', tc.toFixed(3)); return; }
+    if (best.clear < SAFE) console.warn('hud riff: tight step at', tc.toFixed(3), best.clear.toFixed(1));
+    TL.soul.to(tStep, tStep + dur, { x: best.Q[0], y: best.Q[1] }, 'outExpo');
+    TL.burst(tStep, { x: P[0], y: P[1], n: 6, speed: [30, 90], life: [0.12, 0.25], colors: ['#ff4050', '#ffffff'], z: 30, size: 2 });
+    P = best.Q;
+  });
+  TL.hudBack = TL.hudBack || {};
+  shots.forEach((s, k) => {
+    const { lt } = s, td = Math.max(tL + 0.02, s.tl - 0.22), spin = (k % 2 ? 1 : -1) * 10;
+    s.td = td;
+    (TL.hudDetach[lt.key] = TL.hudDetach[lt.key] || [])[lt.i] = td;
+    (TL.hudBack[lt.key] = TL.hudBack[lt.key] || [])[lt.i] = tDrop;
+    TL.add({
+      t0: td, t1: s.tEnd, z: 45, kind: 'white',
+      draw(ctx, emi, t) {
+        if (t < s.tl) { // rattling in its slot, turning red, lifting out of the HUD, then it swells up
+          const u = (t - td) / (s.tl - td), j = 1 + u * 2.5, pop = U.clamp((t - s.tl + 0.07) / 0.07), sc = 2 + u * 0.8 + 1.8 * MV.EASE.outBack(pop);
+          ctx.save(); ctx.translate(R(lt.x + 5 + U.noise(t * 70 + k) * j), R(lt.y + 5 + U.noise(t * 73 + k + 9) * j - 8 * u - 6 * pop));
+          D.hud(ctx, lt.c, -3 * sc, -3 * sc, { scale: sc, color: u > 0.4 ? '#ff5050' : '#ffffff', glow: emi, glowA: 0.3 + u * 0.6 });
+          ctx.restore();
+          return;
+        }
+        const fade = U.clamp((s.tEnd - t) / 0.1);
+        for (let g = 3; g >= 0; g--) { // with a short streak behind it
+          const tt = Math.max(s.tl, t - g * 0.012), [x, y] = posAt(s, tt);
+          ctx.save(); ctx.translate(R(x), R(y)); ctx.rotate((tt - s.tl) * spin);
+          D.hud(ctx, lt.c, -12, -12, { scale: 4, alpha: fade * (g ? 0.35 - g * 0.08 : 1), glow: g ? null : emi, glowA: 0.7 });
+          ctx.restore();
+        }
+      },
+      hit(t, px, py) { if (t < s.tl || t > s.tEnd - 0.05) return false; const [x, y] = posAt(s, t); return Math.hypot(px - x, py - y) < HIT_R; },
+    });
+    // it tears out of the HUD; on the note a ring where the soul just was, and the UI click
+    TL.ring(s.tl, lt.x + 5, lt.y + 5, { r0: 3, r1: 18, dur: 0.18, color: '#ff6060', w: 2 });
+    TL.ring(s.tc, s.P[0], s.P[1], { r0: 2, r1: 14 + k, dur: 0.16, color: k > 8 ? '#ff8080' : '#ffffff', w: 2 });
+    H.punch(s.tc, 0.35 + k * 0.03, { dx: s.dir[0] * 0.6, dy: s.dir[1] * 0.6, rot: (k % 2 ? 1 : -1) * (0.01 + 0.002 * k) });
+    H.sfx(s.tc, 'MenuCursor', 0.3);
+    if (MV.TIKTOK) H.sfx(s.tc - 0.15, 'Whoosh', 0.08 + k * 0.006);
+  });
+  // the HUD has turned hostile: its row pulses red on the beat, and the holes the letters leave
+  // blink red until they come home
+  TL.add({
+    t0: tL, t1: tDrop, z: 44,
+    draw(ctx, emi, t) {
+      const on = Math.floor((t - T.off) / (S16 / 2)) % 2 === 0;
+      if (emi) D.rect(emi, L.name - 8, hy - 6, L.num + 92 - L.name, 24, '#ff2030', 0.08 + 0.2 * T.pulse(t, BEAT, 0.25));
+      for (const s of shots) if (t >= s.td) { D.rect(ctx, s.lt.x - 1, s.lt.y + 11, 12, 3, '#ff3030', on ? 1 : 0.35); if (emi && on) D.rect(emi, s.lt.x - 2, s.lt.y + 8, 14, 8, '#ff3030', 0.6); }
+    },
+  });
+
+  // ---- camera: zoom steps only (a sideways jerk on every sixteenth would smear the picture); in
+  // portrait the view is widened just enough to keep the next letter in shot - the name on the left
+  // in bar 54, then LV and the figures, which fire from the outside in so the shot can close in
+  const pShot = (t, cx, z, hw) => TL.pcam.to(t, t + 0.06, { dx: cx - 480, k: Math.min(0.62, 303.75 / (2 * hw * z)) }, 'outExpo');
+  H.cam(tL, tL + 0.1, { x: 480, y: 318, zoom: 1.12, pitch: 0.08, yaw: 0, roll: 0 }, 'outExpo');
+  pShot(tL, 372, 1.12, 208);
+  shots.forEach((s, k) => {
+    const bar55 = k >= 5, u = (k + 1) / shots.length;
+    const z = bar55 ? 1.35 + 0.05 * (k - 5) : 1.12 + 0.03 * (k + 1);
+    const y = U.lerp(318, 372, u ** 1.5);
+    H.cam(s.tc, s.tc + 0.06, { x: 480, y, zoom: z, roll: -0.05 * u, yaw: 0 }, 'outExpo');
+    const nx = k + 1 < shots.length ? shots[k + 1].lt.x + 5 : 480; // the next one to fire
+    if (bar55) pShot(s.tc, 470, z, Math.max(Math.abs(nx - 470) + 40, 100));
+    else if (k < 4) pShot(s.tc, 372, z, 208);
+  });
+  TL.pcam.to(at(54, 3, 3), at(55) - 0.01, { dx: -10, k: Math.min(0.62, 303.75 / (2 * (Math.abs(order[5].x + 5 - 470) + 40) * 1.3)) }, 'inOut');
+
+  // ---- the last sixteenth: the camera dives onto the soul, the picture tears and whites out
+  const tF = notes[notes.length - 1], qF = TL.soul.at(tF + 0.02);
+  H.cam(tF + 0.01, tDrop - 0.005, { x: qF.x, y: qF.y, zoom: 3.2, roll: 0.12, yaw: 0 }, 'in2');
+  TL.pcam.to(tF + 0.01, tDrop - 0.005, { dx: 0, k: 0.62 }, 'in2');
+  TL.glitch(at(55, 3, 2), tDrop, 0.5);
+  if (MV.TIKTOK) { H.sfx(at(55, 3, 2), 'Glitch', 0.25); H.swell(tDrop, 0.4); }
+  TL.add({ t0: tF, t1: tDrop, z: 99, screen: true, draw(ctx, emi, t) { ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.85 * MV.EASE.in2(U.clamp((t - tF) / (tDrop - tF))); ctx.fillRect(0, 0, MV.SW, MV.SH); ctx.globalAlpha = 1; } });
+  // the drop: every letter is back in its slot
+  TL.post.set(tDrop, { letter: 0 });
+  TL.pcam.set(tDrop, { dx: 0 });
+  TL.body.set(tDrop, 'idle');
+  TL.enemy.to(tDrop, tDrop + 0.2, { handGlow: 0 }, 'out');
+  TL.hud.to(tDrop, tDrop + 0.01, { jit: 2.5 }, 'step');
   TL.hud.to(at(57), at(58), { jit: 0 }, 'lin');
-  // riser: everything flares, white-out
-  const tW = at(55, 3);
-  H.cam(at(55), tW, { zoom: 1.7, roll: 0.25 }, 'in2');
-  for (let s = 0; s < 12; s++) H.punch(at(55, 0, s), 0.2 + s * 0.05);
-  TL.add({ t0: tW, t1: at(56), z: 99, screen: true, draw(ctx, emi, t) { ctx.fillStyle = '#fff'; ctx.globalAlpha = U.clamp((t - tW) / 0.4); ctx.fillRect(0, 0, 960, 540); ctx.globalAlpha = 1; } });
+  for (const s of shots) TL.ring(tDrop, s.lt.x + 5, s.lt.y + 5, { r0: 2, r1: 12, dur: 0.2, color: '#ffffff' });
 });

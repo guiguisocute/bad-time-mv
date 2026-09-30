@@ -4,6 +4,8 @@
   const D = (MV.D = {});
   MV.VW = 960; MV.VH = 540;
   MV.PADX = 240; MV.PADY = 135; // world canvas margin around the default view
+  // screen-space overlay (texts, fades): same aspect as the output
+  [MV.SW, MV.SH] = MV.PORTRAIT ? [540, 960] : [960, 540];
   MV.ART_SCALE = 2;
 
   const tmp = (w, h) => {
@@ -278,7 +280,7 @@
     return pts;
   };
   // (x, y) = feet centre in world. o: {head, body ('idle' | 'HandDown' | 'HandUp' | 'HandLeft' | 'HandRight'),
-  //   frame, torso ('Default' | 'Shrug'), sweat 0-3, idleT, reveal, sil, alpha, t, scale}
+  //   frame, torso ('Default' | 'Shrug'), sweat 0-3, idleT, nod (head drop, art px), reveal, sil, alpha, t, scale}
   D.enemy = (ctx, emi, x, y, o = {}) => {
     const sc = o.scale || 2, M = MV.META;
     ex.clearRect(0, 0, EW, EH);
@@ -299,7 +301,7 @@
     const hAnim = o.head || 'Default';
     const hf = hAnim === 'BlueEye' ? o.eyeFrame || 0 : 0;
     const headImg = MV.frame('SansHead', hAnim, hf);
-    const hy = headAt[1] - R(swayY * -0.4 * 0);
+    const hy = headAt[1] + R(o.nod || 0);
     const hp = put(headImg, M.SansHead[hAnim], hf, headAt[0], hy, 0, R(-Math.sin(T2 * U.TAU * 2) * 0.4 * (o.sway ?? 1)));
     if (o.sweat) ex.drawImage(MV.frame('SansSweat', 'Sweat' + o.sweat), R(hp.Sweat[0] - 16), R(hp.Sweat[1]));
     const headOrigin = [R(headAt[0] - 0.5 * headImg.width), R(hy - headImg.height)];

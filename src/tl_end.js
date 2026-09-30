@@ -187,20 +187,41 @@ MV.sections.push(function () {
   ];
   H.gravity(tR + 0.2, at(70) - 0.01, { dir: 'down', slams: tired.map(([t, d, sp]) => [t, d, { speed: sp, idleAfter: false, vol: 0.2 + sp / 1200, shake: 3 + sp / 90, bulge: 4 + sp / 60 }]) });
   TL.head.set(at(68, 2), 'Default'); TL.sweat.set(at(68, 2), 1);
-  H.say(at(68, 2), at(70) - 0.05, '* Sans看起来真的很疲惫了。', { screen: true, panel: true, scale: 2, x: 64, y: 58, fadeOut: 0.3 });
+  const tiredStr = '* Sans看起来真的很疲惫了。';
+  H.say(at(68, 2), at(70) - 0.05, tiredStr, { screen: true, panel: true, scale: 2, x: MV.PORTRAIT ? (MV.SW - D.textWidth(tiredStr)) / 2 : 64, y: MV.PORTRAIT ? 104 : 58, fadeOut: 0.3 });
+  // (the camera drifts left so his face sits clear of the text box in the top-left corner)
+  H.cam(at(68, 2), at(68, 3), { x: 410 }, 'inOut');
+  // every swing comes slower than the last
+  TL.enemy.to(at(68, 3), at(69, 3), { spf: 0.07 }, 'in');
+  // he fights to stay awake: heavy eyes, a slow blink, a nod he catches just in time for one last
+  // feeble throw - then the eyes close for good and the head sinks
   TL.head.set(at(69), 'Tired1'); TL.sweat.set(at(69), 2);
+  TL.head.set(at(69, 1, 2), 'ClosedEyes'); TL.head.set(at(69, 1, 3), 'Tired1');
   TL.head.set(at(69, 2), 'Tired2'); TL.sweat.set(at(69, 2), 3);
+  TL.head.set(at(69, 2, 2), 'ClosedEyes');
+  TL.enemy.to(at(69, 2, 2), at(69, 3) - 0.1, { nod: 2 }, 'inOut');
+  TL.head.set(at(69, 3) - 0.1, 'Tired2');
+  TL.enemy.to(at(69, 3) - 0.1, at(69, 3) - 0.05, { nod: -1 }, 'outExpo');
+  TL.enemy.to(at(69, 3) - 0.05, at(69, 3) + 0.1, { nod: 0 }, 'out');
+  H.punch(at(69, 3) - 0.1, 0.25);
+  TL.body.set(at(69, 3) + 0.25, 'idle'); // the arm drops
+  TL.head.set(at(69, 3, 2), 'ClosedEyes');
+  TL.enemy.to(at(69, 3, 2), at(70, 0, 2), { nod: 3 }, 'inOut');
   TL.enemy.to(at(69), at(70), { sway: 0.3, handGlow: 0 }, 'inOut');
-  H.cam(at(69), at(70), { x: 480, y: 250, zoom: 1.7, pitch: -0.1 }, 'inOut');
-  // ... and falls asleep
+  TL.enemy.to(at(69, 3, 2), at(70, 1), { sway: 0.12 }, 'inOut');
+  H.cam(at(69), at(70), { x: 405, y: 250, zoom: 1.7, pitch: -0.1 }, 'inOut');
+  // ... and he is asleep: slow breathing, the sweat dries, the z's drift up one by one
   const tZ = at(70);
-  TL.body.set(tZ, 'idle');
-  TL.head.set(tZ, 'ClosedEyes');
+  H.cam(tZ, at(70, 1) - 0.02, { zoom: 1.85, y: 244 }, 'inOut');
+  for (let k = 0; k < 7; k++) TL.enemy.to(at(70, 0, 2) + k * BEAT, at(70, 0, 2) + (k + 1) * BEAT, { nod: k % 2 ? 3 : 2 }, 'inOut');
+  TL.sweat.set(at(70, 1), 2); TL.sweat.set(at(70, 2), 1); TL.sweat.set(at(70, 3), 0);
   TL.soulCol.set(tZ, 'red');
   TL.aura.to(tZ, tZ + 0.2, { v: 0 }, 'out');
   TL.add({ t0: tZ, t1: at(72), z: 50, draw(ctx, emi, t) {
     for (let i = 0; i < 3; i++) {
-      const u = ((t - tZ) / 1.2 + i / 3) % 1;
+      const tb = tZ + i * 0.4;
+      if (t < tb) continue;
+      const u = ((t - tb) / 1.2) % 1;
       D.text(ctx, 'z', ex + 26 + u * 26 + Math.sin(u * 6) * 4, ey - 150 - u * 50, { scale: 1 + (u > 0.5 ? 1 : 0), alpha: Math.sin(u * Math.PI) * 0.9 });
     }
   } });
@@ -275,6 +296,7 @@ MV.sections.push(function () {
   TL.enemy.to(tCut, tCut + 0.05, { x: ex + 14, ghost: 0 }, 'outExpo');
   TL.enemy.to(tCut + 0.05, at(72, 1), { x: ex, sway: 0 }, 'out');
   TL.head.set(tCut, 'ClosedEyes');
+  TL.enemy.to(tCut, tCut + 0.05, { nod: 0 }, 'outExpo'); // the blow snaps his head up
   TL.sweat.set(tCut, 0);
   TL.box.set(tCut + 0.001, Object.assign({ draw: 1, fill: 0 }, UB));
   TL.box.to(at(72, 1), at(72, 3), { alpha: 0 }, 'inOut');
@@ -337,7 +359,8 @@ MV.sections.push(function () {
   H.cam(at(77), T.dur, { x: 480, y: 330, zoom: 1.6 }, 'in2');
   // the music stops; the question stays in the silence (T.dur..T.end)
   const tText = T.dur + 1.9, tDark = T.dur + 2.1, tBlack = T.dur + 3.2;
-  H.say(r77[0], tText + 0.8, '* 这就是你想要的吗？', { screen: true, times: [r77[0], r77[0]].concat(r77.slice(1)), x: 480 - 150, y: 400, scale: 2, voice: 'BattleText', vol: 0.2, fadeOut: 0.8 });
+  const askStr = '* 这就是你想要的吗？';
+  H.say(r77[0], tText + 0.8, askStr, { screen: true, times: [r77[0], r77[0]].concat(r77.slice(1)), x: MV.PORTRAIT ? (MV.SW - D.textWidth(askStr)) / 2 : 480 - 150, y: MV.PORTRAIT ? 590 : 400, scale: 2, voice: 'BattleText', vol: 0.2, fadeOut: 0.8 });
   H.cam(T.dur, T.end, { x: 480, y: 330, zoom: 2.0 }, 'out2');
   // two slow, quiet heartbeats with nothing left to fight
   [[T.dur + 0.7, 1.14], [T.dur + 0.9, 1.07], [T.dur + 1.9, 1.1], [T.dur + 2.1, 1.04]].forEach(([t, k]) => {
@@ -347,6 +370,6 @@ MV.sections.push(function () {
   TL.post.to(T.dur, tBlack, { bloom: 0.5, ca: 0.1 }, 'out');
   TL.add({ t0: tDark, t1: T.end + 1, z: 200, screen: true, draw(ctx, emi, t) {
     ctx.fillStyle = `rgba(0,0,0,${MV.EASE.inOut(U.clamp((t - tDark) / (tBlack - tDark))).toFixed(3)})`;
-    ctx.fillRect(0, 0, 960, 540);
+    ctx.fillRect(0, 0, MV.SW, MV.SH);
   } });
 });

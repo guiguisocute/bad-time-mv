@@ -92,14 +92,14 @@
       [this.emiC, this.emi] = D.tmp(W, H);
       [this.glowA, this.gA] = D.tmp(W >> 2, H >> 2);
       [this.glowB, this.gB] = D.tmp(W >> 3, H >> 3);
-      [this.screen, this.sctx] = D.tmp(MV.VW, MV.VH);
+      [this.screen, this.sctx] = D.tmp(MV.SW, MV.SH);
       this.W = W; this.H = H;
     }
     render(t, only3D) {
       const { ctx, emi, sctx } = this;
       const S = (this.S = MV.state(t));
       if (only3D) {
-        sctx.clearRect(0, 0, MV.VW, MV.VH);
+        sctx.clearRect(0, 0, MV.SW, MV.SH);
         for (const e of TL.active(t)) if (e.screen) e.draw(sctx, null, t, S);
         return S;
       }
@@ -110,7 +110,7 @@
         c.imageSmoothingEnabled = false;
         c.globalAlpha = 1;
       }
-      sctx.clearRect(0, 0, MV.VW, MV.VH);
+      sctx.clearRect(0, 0, MV.SW, MV.SH);
       const evs = TL.active(t);
       const layer = (z0, z1, filter) => {
         for (const e of evs) if (e.z >= z0 && e.z < z1 && !e.screen && (!filter || filter(e))) e.draw(ctx, emi, t, S);
@@ -119,8 +119,8 @@
       const en = S.enemy;
       if (en.a > 0.001) {
         const pose = (tt, extra) => ({
-          head: S.head, body: S.body, frame: S.body === 'idle' ? 0 : Math.floor(S.bodySince / 0.024), torso: S.torso, sweat: S.sweat,
-          idleT: (tt - T.off) / (T.beat * 2), sway: en.sway, eyeFrame: Math.floor((tt - T.off) / T.s16) % 2, t: tt, ...extra,
+          head: S.head, body: S.body, frame: S.body === 'idle' ? 0 : Math.floor(S.bodySince / en.spf), torso: S.torso, sweat: S.sweat,
+          idleT: (tt - T.off) / (T.beat * 2), sway: en.sway, nod: en.nod, eyeFrame: Math.floor((tt - T.off) / T.s16) % 2, t: tt, ...extra,
         });
         if (en.ghost > 0.01)
           for (let k = 4; k >= 1; k--) {
